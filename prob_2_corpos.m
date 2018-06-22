@@ -1,21 +1,20 @@
-% limpa framework
+%% limpa framework
 clear all;
 close all;
 clc;
 
-% vetores iniciais
+%% vetores iniciais
 % posicao inicial
 r_0 = [205.081; 5393.556; -5866.674]; % [km]
 %r_0 = [10016.34; -17012.52; 7899.28];
 % velocidade inicial
 v_0 = [-5.518; 6.72; 2.901]; % [km/s]
 %v_0 = [2.5; -1.05; 3.88];
-
-% vetor de condições iniciais
+%% vetor de condições iniciais
 X_0 = [r_0; v_0];
 
 % parametro gravitacional par uma orbita Terrestr u = G * m_Terra
-u = 3.986e5;
+u = 3.986e5; %[km^3/s^2]
 % energia total específica orbital
 E = norm(v_0)^2/2 - u/norm(r_0);
 % semieixo maior da órbita
@@ -23,21 +22,25 @@ a = -u/(2*E);
 % período da órbita
 T = 2*pi*sqrt(a^3/u);
 
-% Sistema de equações para o problema dos dois corpos
+%% Sistema de equações para o problema dos dois corpos
 doisCorpos = @(t, X) [zeros(3,3), eye(3); -(u/norm(X(1:3,1))^3)*eye(3), zeros(3,3)]*X;
 
-% ajuste da tolerância relativa do integrador
-options = odeset('RelTol',1e-9);
+%% numero de órbitas a serem propagadas 
+nOrbitas = 100;
 
-% numero de órbitas a serem propagadas 
-nOrbitas = 1;
-
-% integração numérica das equações doisCorpos considerando as condicoes
+%% integração numérica das equações doisCorpos considerando as condicoes
 % iniciais X_0, para integração é utilizado um tempo múltiplo do período
 % orbital
+options = odeset('RelTol',1e-9); % ajuste da tolerância relativa do integrador
 [t X] = ode45(doisCorpos, [0 nOrbitas*T], X_0, options);
 
 %% figura 1 - plot 3D animado da órbita
+% nAnicmoes escolhe o numero de animacoes (deve ser inferior ao numero de orbitas nOrbitas)
+nAnimacoes = 1;
+if nAnimacoes > nOrbitas
+    nAnimacoes = nOrbitas;
+end
+
 fig = figure;
 plot3(X(:,1),X(:,2),X(:,3),'LineWidth',2,'Color','red');
 hold on;
@@ -57,15 +60,11 @@ xlabel('[km]');
 ylabel('[km]');
 zlabel('[km]');
 axis equal;
-ax = gca;
-xlim(ax.XLim*1.1);
-ylim(ax.YLim*1.1);
-zlim([ax.ZLim(1)*2 ax.ZLim(2)]);
 axis manual;
 grid;
 
 n = 13;
-for k = 1:n:length(X(:,1))
+for k = 1:n:int32(((length(X(:,1)))/nOrbitas)*nAnimacoes)
     set(p, 'XData', X(k,1));
     set(p, 'YData', X(k,2));
     set(p, 'ZData', X(k,3));
@@ -109,3 +108,48 @@ zlabel('[km]');
 view(cross(r_0,v_0));
 axis equal;
 grid;
+
+%% plot no tempo dos vetores de posição, velocidade e momento angular
+% especifico em módulo
+
+for i=1:length(X(:,1))
+    R_ = [X(i,1);X(i,2);X(i,3)];
+    V_ = [X(i,4);X(i,5);X(i,6)];
+    R(i) = norm(R_);
+    V(i) = norm(V_);
+    H(i) = norm(cross(R_,V_));
+    E(i) = V(i)^2/2-u/R(i);
+end
+
+figure;
+ax1 = subplot(3,1,1);
+plot(ax1,t,R);
+title(ax1,'Posição em módulo');
+ylabel(ax1,'|r| [km]');
+grid minor;
+
+ax2 = subplot(3,1,2);
+plot(ax2,t,V);
+title(ax2,'Velocidade em módulo');
+ylabel('|v| [km/s]');
+grid minor;
+
+ax3 = subplot(3,1,3);
+plot(ax3,t,E);
+ylim([-8.03 -7.94]);
+title(ax3, 'Energia total específica');
+ylabel(ax3, 'E [kJ/kg]');
+grid minor;
+
+%% altitudes no apogeu e perigeu
+disp('altitude no perigeu');
+disp([num2str(min(R)), ' km']);
+
+disp('altitude no apogeu');
+disp([num2str(max(R)),' km']);
+
+disp('velocidade no perigeu');
+disp([num2str(max(V)), ' km/s']);
+
+disp('velocidade no apogeu');
+disp([num2str(min(V)), ' km/s']);
